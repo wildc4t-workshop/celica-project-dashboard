@@ -42,6 +42,7 @@
           <button type="button" class="chip" data-value="30">30 min</button>
           <button type="button" class="chip" data-value="60">1 hr</button>
           <button type="button" class="chip" data-value="120">2 hr</button>
+          <button type="button" class="chip" data-value="240">4 hr</button>
         </div>
       </div>
 
@@ -52,6 +53,7 @@
           <button type="button" class="chip" data-value="desk">Desk</button>
           <button type="button" class="chip" data-value="computer">Computer</button>
           <button type="button" class="chip" data-value="phone">Phone</button>
+          <button type="button" class="chip" data-value="garage">Garage</button>
           <button type="button" class="chip" data-value="bench">Bench</button>
           <button type="button" class="chip" data-value="car">Car</button>
           <button type="button" class="chip" data-value="cad">CAD</button>
@@ -67,10 +69,31 @@
           <button type="button" class="chip" data-value="buy">Buy</button>
           <button type="button" class="chip" data-value="install">Install</button>
           <button type="button" class="chip" data-value="code">Code</button>
+          <button type="button" class="chip" data-value="document">Document</button>
+          <button type="button" class="chip" data-value="mockup">Mockup</button>
           <button type="button" class="chip" data-value="bench-test">Bench test</button>
           <button type="button" class="chip" data-value="vehicle-test">Vehicle test</button>
           <button type="button" class="chip" data-value="fabricate">Build</button>
+          <button type="button" class="chip" data-value="verify">Verify</button>
           <button type="button" class="chip" data-value="cad">CAD</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <span class="control-label">Car availability</span>
+        <div class="chips" data-filter="carDown">
+          <button type="button" class="chip active" data-value="all">Any</button>
+          <button type="button" class="chip" data-value="false">Keep car usable</button>
+          <button type="button" class="chip" data-value="true">Car-down work</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <span class="control-label">Parts</span>
+        <div class="chips" data-filter="parts">
+          <button type="button" class="chip active" data-value="all">Any</button>
+          <button type="button" class="chip" data-value="false">No parts needed</button>
+          <button type="button" class="chip" data-value="true">Needs parts</button>
         </div>
       </div>
 
@@ -80,7 +103,10 @@
           <select id="statusFilter">
             <option value="ready" selected>Ready now</option>
             <option value="all">Everything</option>
+            <option value="doing">Doing</option>
             <option value="blocked">Blocked</option>
+            <option value="verify">Needs verification</option>
+            <option value="done">Done</option>
             <option value="backlog">Future backlog</option>
           </select>
         </label>
