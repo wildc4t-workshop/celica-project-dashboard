@@ -1,7 +1,7 @@
 const state = {
   projects: [],
   tasks: [],
-  filters: { time: 'all', context: 'all', action: 'all', status: 'ready', priority: 'all', cost: 'all', search: '' }
+  filters: { project: 'all', time: 'all', context: 'all', action: 'all', status: 'ready', priority: 'all', cost: 'all', search: '' }
 };
 
 const priorityRank = { low: 1, medium: 2, high: 3, critical: 4 };
@@ -84,12 +84,25 @@ async function init() {
       message.hidden = false;
       message.textContent = `${failures.length} project source${failures.length === 1 ? '' : 's'} could not be loaded.`;
     }
+    renderProjectFilters();
     bindUI();
     render();
   } catch (err) {
     message.hidden = false;
     message.textContent = `Dashboard data could not be loaded: ${err.message}`;
   }
+}
+
+function renderProjectFilters() {
+  const group = document.getElementById('projectFilters');
+  state.projects.forEach(project => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'chip';
+    button.dataset.value = project.id;
+    button.textContent = project.name;
+    group.appendChild(button);
+  });
 }
 
 function bindUI() {
@@ -118,7 +131,7 @@ function bindUI() {
 }
 
 function resetFilters() {
-  state.filters = { time: 'all', context: 'all', action: 'all', status: 'ready', priority: 'all', cost: 'all', search: '' };
+  state.filters = { project: 'all', time: 'all', context: 'all', action: 'all', status: 'ready', priority: 'all', cost: 'all', search: '' };
   document.querySelectorAll('.chips').forEach(group => {
     group.querySelectorAll('.chip').forEach((button, i) => button.classList.toggle('active', i === 0));
   });
@@ -131,6 +144,7 @@ function resetFilters() {
 
 function taskMatches(t) {
   const f = state.filters;
+  if (f.project !== 'all' && t.project_id !== f.project) return false;
   if (f.status !== 'all' && t.status !== f.status) return false;
   if (f.time !== 'all' && t.time_min > Number(f.time)) return false;
   if (f.context !== 'all' && t.context !== f.context) return false;
@@ -209,7 +223,11 @@ function renderTasks() {
   const tasks = filteredTasks();
   list.replaceChildren();
   count.textContent = `${tasks.length} task${tasks.length === 1 ? '' : 's'}`;
-  title.textContent = state.filters.status === 'ready' ? 'Ready now' : state.filters.status === 'all' ? 'All work' : pretty(state.filters.status);
+
+  const project = state.projects.find(p => p.id === state.filters.project);
+  const statusTitle = state.filters.status === 'ready' ? 'Ready now' : state.filters.status === 'all' ? 'All work' : pretty(state.filters.status);
+  title.textContent = project ? `${project.name} · ${statusTitle}` : statusTitle;
+
   if (!tasks.length) {
     const empty = document.createElement('div');
     empty.className = 'message';
