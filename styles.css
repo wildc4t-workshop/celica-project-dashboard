@@ -22,6 +22,7 @@ body{margin:0;background:radial-gradient(circle at top right,rgba(90,169,255,.08
 a{color:inherit}
 button,input,select{font:inherit}
 button{cursor:pointer}
+button:disabled{cursor:wait;opacity:.6}
 .shell{width:min(1080px,calc(100% - 28px));margin:0 auto;padding:28px 0 64px}
 .hero{display:grid;gap:18px;align-items:end;padding:12px 0 22px;border-bottom:1px solid var(--border)}
 .hero h1,.results-head h2{margin:.15rem 0 0;letter-spacing:-.03em}
@@ -94,7 +95,7 @@ select,input[type="search"]{min-height:44px;width:100%;border:1px solid var(--bo
   .github-link{justify-self:end}
   .summary{grid-template-columns:repeat(4,1fr)}
   .control-row{grid-template-columns:repeat(3,1fr)}
-  .search-row{grid-template-columns:1fr auto auto}
+  .search-row{grid-template-columns:1fr auto auto auto}
   .task-list{grid-template-columns:repeat(2,minmax(0,1fr))}
   .project-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
