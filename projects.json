@@ -14,6 +14,11 @@
       "id": "celica-baseline",
       "repository": "wildc4t-workshop/celica-baseline",
       "branch": "main"
+    },
+    {
+      "id": "celica-side-projects",
+      "repository": "wildc4t-workshop/celica-side-projects",
+      "branch": "main"
     }
   ]
 }
