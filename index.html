@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101317">
+  <title>Celica Project Dashboard</title>
+  <meta name="description" content="A constraint-first dashboard for finding the next useful Celica engineering task.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">CELICA ENGINEERING</p>
+        <h1>What can I work on?</h1>
+        <p class="lede">Pick the time and place you have right now. The dashboard finds useful work that is actually ready.</p>
+      </div>
+      <a class="github-link" href="https://github.com/wildc4t-workshop/celica-project-dashboard" target="_blank" rel="noreferrer">Dashboard repo ↗</a>
+    </header>
+
+    <section class="summary" aria-label="Dashboard summary">
+      <div><strong id="projectCount">—</strong><span>projects</span></div>
+      <div><strong id="readyCount">—</strong><span>ready</span></div>
+      <div><strong id="blockedCount">—</strong><span>blocked</span></div>
+      <div><strong id="backlogCount">—</strong><span>future</span></div>
+    </section>
+
+    <section class="control-panel" aria-label="Task filters">
+      <div class="control-group">
+        <span class="control-label">Time</span>
+        <div class="chips" data-filter="time">
+          <button type="button" class="chip active" data-value="all">Any</button>
+          <button type="button" class="chip" data-value="15">15 min</button>
+          <button type="button" class="chip" data-value="30">30 min</button>
+          <button type="button" class="chip" data-value="60">1 hr</button>
+          <button type="button" class="chip" data-value="120">2 hr</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <span class="control-label">Where</span>
+        <div class="chips" data-filter="context">
+          <button type="button" class="chip active" data-value="all">Anywhere</button>
+          <button type="button" class="chip" data-value="desk">Desk</button>
+          <button type="button" class="chip" data-value="computer">Computer</button>
+          <button type="button" class="chip" data-value="phone">Phone</button>
+          <button type="button" class="chip" data-value="bench">Bench</button>
+          <button type="button" class="chip" data-value="car">Car</button>
+          <button type="button" class="chip" data-value="cad">CAD</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <span class="control-label">Action</span>
+        <div class="chips" data-filter="action">
+          <button type="button" class="chip active" data-value="all">Anything</button>
+          <button type="button" class="chip" data-value="research">Research</button>
+          <button type="button" class="chip" data-value="measure">Measure</button>
+          <button type="button" class="chip" data-value="buy">Buy</button>
+          <button type="button" class="chip" data-value="code">Code</button>
+          <button type="button" class="chip" data-value="bench-test">Bench test</button>
+          <button type="button" class="chip" data-value="vehicle-test">Vehicle test</button>
+          <button type="button" class="chip" data-value="fabricate">Build</button>
+          <button type="button" class="chip" data-value="cad">CAD</button>
+        </div>
+      </div>
+
+      <div class="control-row">
+        <label>
+          <span>Status</span>
+          <select id="statusFilter">
+            <option value="ready" selected>Ready now</option>
+            <option value="all">Everything</option>
+            <option value="blocked">Blocked</option>
+            <option value="backlog">Future backlog</option>
+          </select>
+        </label>
+        <label>
+          <span>Priority</span>
+          <select id="priorityFilter">
+            <option value="all">Any</option>
+            <option value="critical">Critical only</option>
+            <option value="high">High + critical</option>
+            <option value="medium">Medium +</option>
+          </select>
+        </label>
+        <label>
+          <span>Budget</span>
+          <select id="costFilter">
+            <option value="all">Any</option>
+            <option value="0">$0</option>
+            <option value="25">≤ $25</option>
+            <option value="100">≤ $100</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="search-row">
+        <input id="searchInput" type="search" placeholder="Search RDA, mirrors, NFC…" aria-label="Search tasks">
+        <button type="button" id="pickButton" class="primary-button">Pick one for me</button>
+        <button type="button" id="resetButton" class="secondary-button">Reset</button>
+      </div>
+    </section>
+
+    <section class="results-head">
+      <div>
+        <p class="eyebrow">AVAILABLE WORK</p>
+        <h2 id="resultTitle">Ready now</h2>
+      </div>
+      <span id="resultCount" class="result-count" aria-live="polite"></span>
+    </section>
+
+    <div id="message" class="message" hidden></div>
+    <section id="taskList" class="task-list" aria-live="polite"></section>
+
+    <section class="projects-section">
+      <div class="results-head">
+        <div>
+          <p class="eyebrow">PROJECTS</p>
+          <h2>Engineering overview</h2>
+        </div>
+      </div>
+      <div id="projectList" class="project-list"></div>
+    </section>
+  </main>
+
+  <dialog id="taskDialog" class="task-dialog">
+    <article id="taskDialogContent"></article>
+    <form method="dialog"><button class="secondary-button">Close</button></form>
+  </dialog>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
