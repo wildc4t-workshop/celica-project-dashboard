@@ -1,0 +1,9 @@
+{
+  "projects": [
+    {
+      "id": "celikey",
+      "repository": "wildc4t-workshop/CeliKey",
+      "branch": "main"
+    }
+  ]
+}
