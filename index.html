@@ -48,34 +48,15 @@
 
       <div class="control-group">
         <span class="control-label">Where</span>
-        <div class="chips" data-filter="context">
+        <div class="chips" id="contextFilters" data-filter="context">
           <button type="button" class="chip active" data-value="all">Anywhere</button>
-          <button type="button" class="chip" data-value="desk">Desk</button>
-          <button type="button" class="chip" data-value="computer">Computer</button>
-          <button type="button" class="chip" data-value="phone">Phone</button>
-          <button type="button" class="chip" data-value="garage">Garage</button>
-          <button type="button" class="chip" data-value="bench">Bench</button>
-          <button type="button" class="chip" data-value="car">Car</button>
-          <button type="button" class="chip" data-value="cad">CAD</button>
         </div>
       </div>
 
       <div class="control-group">
         <span class="control-label">Action</span>
-        <div class="chips" data-filter="action">
+        <div class="chips" id="actionFilters" data-filter="action">
           <button type="button" class="chip active" data-value="all">Anything</button>
-          <button type="button" class="chip" data-value="research">Research</button>
-          <button type="button" class="chip" data-value="measure">Measure</button>
-          <button type="button" class="chip" data-value="buy">Buy</button>
-          <button type="button" class="chip" data-value="install">Install</button>
-          <button type="button" class="chip" data-value="code">Code</button>
-          <button type="button" class="chip" data-value="document">Document</button>
-          <button type="button" class="chip" data-value="mockup">Mockup</button>
-          <button type="button" class="chip" data-value="bench-test">Bench test</button>
-          <button type="button" class="chip" data-value="vehicle-test">Vehicle test</button>
-          <button type="button" class="chip" data-value="fabricate">Build</button>
-          <button type="button" class="chip" data-value="verify">Verify</button>
-          <button type="button" class="chip" data-value="cad">CAD</button>
         </div>
       </div>
 
@@ -163,6 +144,11 @@
   <dialog id="taskDialog" class="task-dialog">
     <article id="taskDialogContent"></article>
     <form method="dialog"><button class="secondary-button">Close</button></form>
+  </dialog>
+
+  <dialog id="dependencyDialog" class="dependency-dialog">
+    <article id="dependencyDialogContent"></article>
+    <form method="dialog"><button class="secondary-button">Close map</button></form>
   </dialog>
 
   <script src="app.js" defer></script>
