@@ -9,6 +9,11 @@
       "id": "celica-street-build",
       "repository": "wildc4t-workshop/celica-street-build",
       "branch": "main"
+    },
+    {
+      "id": "celica-baseline",
+      "repository": "wildc4t-workshop/celica-baseline",
+      "branch": "main"
     }
   ]
 }
