@@ -1,10 +1,17 @@
 const state = {
   projects: [],
   tasks: [],
-  filters: { project: 'all', time: 'all', context: 'all', action: 'all', status: 'ready', priority: 'all', cost: 'all', search: '' }
+  validationWarnings: [],
+  filters: {
+    project: 'all', time: 'all', context: 'all', action: 'all',
+    carDown: 'all', parts: 'all', status: 'ready', priority: 'all', cost: 'all', search: ''
+  }
 };
 
 const priorityRank = { low: 1, medium: 2, high: 3, critical: 4 };
+const validStatuses = new Set(['backlog', 'ready', 'doing', 'blocked', 'verify', 'done']);
+const validActions = new Set(['research', 'measure', 'buy', 'cad', 'mockup', 'bench-test', 'vehicle-test', 'code', 'fabricate', 'install', 'document', 'verify']);
+const validContexts = new Set(['desk', 'phone', 'garage', 'car', 'bench', 'cad', 'computer']);
 
 function parseCSV(text) {
   const rows = [];
@@ -70,6 +77,26 @@ async function loadProject(entry, cacheBust = '') {
   return { project, tasks };
 }
 
+function validateTaskData(tasks) {
+  const warnings = [];
+  const counts = new Map();
+  tasks.forEach(t => counts.set(t.id, (counts.get(t.id) || 0) + 1));
+  counts.forEach((count, id) => { if (count > 1) warnings.push(`Duplicate task ID: ${id}`); });
+
+  const ids = new Set(tasks.map(t => t.id));
+  tasks.forEach(t => {
+    if (!validStatuses.has(t.status)) warnings.push(`${t.id}: invalid status '${t.status}'`);
+    if (!validActions.has(t.action)) warnings.push(`${t.id}: invalid action '${t.action}'`);
+    if (!validContexts.has(t.context)) warnings.push(`${t.id}: invalid context '${t.context}'`);
+    if (t.blocked_by) {
+      t.blocked_by.split(';').map(x => x.trim()).filter(Boolean).forEach(dep => {
+        if (!ids.has(dep)) warnings.push(`${t.id}: missing dependency ${dep}`);
+      });
+    }
+  });
+  return [...new Set(warnings)];
+}
+
 async function loadData(force = false) {
   const cacheBust = force ? `${Date.now()}-${Math.random().toString(36).slice(2)}` : '';
   const registryUrl = cacheBust ? `projects.json?refresh=${encodeURIComponent(cacheBust)}` : 'projects.json';
@@ -81,6 +108,7 @@ async function loadData(force = false) {
   const successes = loaded.filter(x => x.status === 'fulfilled').map(x => x.value);
   state.projects = successes.map(x => x.project);
   state.tasks = successes.flatMap(x => x.tasks);
+  state.validationWarnings = validateTaskData(state.tasks);
 
   if (state.filters.project !== 'all' && !state.projects.some(p => p.id === state.filters.project)) {
     state.filters.project = 'all';
@@ -103,6 +131,9 @@ async function refreshData(force = false) {
     message.hidden = false;
     if (failureCount) {
       message.textContent = `${failureCount} project source${failureCount === 1 ? '' : 's'} could not be loaded.`;
+    } else if (state.validationWarnings.length) {
+      const preview = state.validationWarnings.slice(0, 3).join(' · ');
+      message.textContent = `${state.validationWarnings.length} task-data warning${state.validationWarnings.length === 1 ? '' : 's'}: ${preview}${state.validationWarnings.length > 3 ? ' …' : ''}`;
     } else if (force) {
       message.textContent = `Fresh data loaded from GitHub at ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}.`;
     } else {
@@ -173,7 +204,10 @@ function bindUI() {
 }
 
 function resetFilters() {
-  state.filters = { project: 'all', time: 'all', context: 'all', action: 'all', status: 'ready', priority: 'all', cost: 'all', search: '' };
+  state.filters = {
+    project: 'all', time: 'all', context: 'all', action: 'all',
+    carDown: 'all', parts: 'all', status: 'ready', priority: 'all', cost: 'all', search: ''
+  };
   document.querySelectorAll('.chips').forEach(group => {
     group.querySelectorAll('.chip').forEach((button, i) => button.classList.toggle('active', i === 0));
   });
@@ -191,6 +225,8 @@ function taskMatches(t) {
   if (f.time !== 'all' && t.time_min > Number(f.time)) return false;
   if (f.context !== 'all' && t.context !== f.context) return false;
   if (f.action !== 'all' && t.action !== f.action) return false;
+  if (f.carDown !== 'all' && String(t.requires_car_down) !== f.carDown) return false;
+  if (f.parts !== 'all' && String(t.requires_parts) !== f.parts) return false;
   if (f.priority !== 'all' && priorityRank[t.priority] < priorityRank[f.priority]) return false;
   if (f.cost !== 'all') {
     const cost = t.cost ?? 0;
@@ -249,6 +285,8 @@ function taskCard(t) {
       <span class="badge priority-${escapeHtml(t.priority)}">${pretty(t.priority)}</span>
       <span class="badge">${pretty(t.context)}</span>
       <span class="badge">${pretty(t.action)}</span>
+      ${t.requires_car_down ? '<span class="badge">Car down</span>' : ''}
+      ${t.requires_parts ? '<span class="badge">Needs parts</span>' : ''}
       ${t.cost !== null ? `<span class="badge">$${escapeHtml(t.cost)}</span>` : ''}
     </div>
     ${t.notes ? `<p class="task-note">${escapeHtml(t.notes)}</p>` : ''}
@@ -320,6 +358,8 @@ function openTask(t) {
       <div><span>Context</span><strong>${pretty(t.context)}</strong></div>
       <div><span>Action</span><strong>${pretty(t.action)}</strong></div>
       <div><span>Cost</span><strong>${t.cost === null ? 'Not specified' : `$${t.cost}`}</strong></div>
+      <div><span>Car down</span><strong>${t.requires_car_down ? 'Yes' : 'No'}</strong></div>
+      <div><span>Parts needed</span><strong>${t.requires_parts ? 'Yes' : 'No'}</strong></div>
     </div>
     ${t.blocked_by ? `<p><strong>Blocked by:</strong> ${escapeHtml(t.blocked_by)}</p>` : ''}
     ${t.decision_needed ? `<p><strong>Decision:</strong> ${escapeHtml(t.decision_needed)}</p>` : ''}
