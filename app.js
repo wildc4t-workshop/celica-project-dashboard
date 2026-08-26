@@ -44,14 +44,15 @@ function parseProjectYaml(text) {
   };
 }
 
-function rawUrl(repo, branch, path) {
-  return `https://raw.githubusercontent.com/${repo}/${branch}/${path}`;
+function rawUrl(repo, branch, path, cacheBust = '') {
+  const base = `https://raw.githubusercontent.com/${repo}/${branch}/${path}`;
+  return cacheBust ? `${base}?refresh=${encodeURIComponent(cacheBust)}` : base;
 }
 
-async function loadProject(entry) {
+async function loadProject(entry, cacheBust = '') {
   const [metaRes, taskRes] = await Promise.all([
-    fetch(rawUrl(entry.repository, entry.branch, 'project.yaml'), { cache: 'no-store' }),
-    fetch(rawUrl(entry.repository, entry.branch, 'tasks.csv'), { cache: 'no-store' })
+    fetch(rawUrl(entry.repository, entry.branch, 'project.yaml', cacheBust), { cache: 'no-store' }),
+    fetch(rawUrl(entry.repository, entry.branch, 'tasks.csv', cacheBust), { cache: 'no-store' })
   ]);
   if (!metaRes.ok || !taskRes.ok) throw new Error(`Could not load ${entry.repository}`);
   const project = { ...parseProjectYaml(await metaRes.text()), repository: entry.repository, branch: entry.branch };
@@ -69,36 +70,76 @@ async function loadProject(entry) {
   return { project, tasks };
 }
 
-async function init() {
+async function loadData(force = false) {
+  const cacheBust = force ? `${Date.now()}-${Math.random().toString(36).slice(2)}` : '';
+  const registryUrl = cacheBust ? `projects.json?refresh=${encodeURIComponent(cacheBust)}` : 'projects.json';
+  const registryRes = await fetch(registryUrl, { cache: 'no-store' });
+  if (!registryRes.ok) throw new Error('Could not load project registry.');
+  const registry = await registryRes.json();
+  const loaded = await Promise.allSettled(registry.projects.map(entry => loadProject(entry, cacheBust)));
+  const failures = loaded.filter(x => x.status === 'rejected');
+  const successes = loaded.filter(x => x.status === 'fulfilled').map(x => x.value);
+  state.projects = successes.map(x => x.project);
+  state.tasks = successes.flatMap(x => x.tasks);
+
+  if (state.filters.project !== 'all' && !state.projects.some(p => p.id === state.filters.project)) {
+    state.filters.project = 'all';
+  }
+
+  return failures.length;
+}
+
+async function refreshData(force = false) {
   const message = document.getElementById('message');
+  const button = document.getElementById('refreshButton');
+  if (button) {
+    button.disabled = true;
+    button.textContent = force ? 'Refreshing…' : 'Loading…';
+  }
   try {
-    const registryRes = await fetch('projects.json', { cache: 'no-store' });
-    if (!registryRes.ok) throw new Error('Could not load project registry.');
-    const registry = await registryRes.json();
-    const loaded = await Promise.allSettled(registry.projects.map(loadProject));
-    const failures = loaded.filter(x => x.status === 'rejected');
-    const successes = loaded.filter(x => x.status === 'fulfilled').map(x => x.value);
-    state.projects = successes.map(x => x.project);
-    state.tasks = successes.flatMap(x => x.tasks);
-    if (failures.length) {
-      message.hidden = false;
-      message.textContent = `${failures.length} project source${failures.length === 1 ? '' : 's'} could not be loaded.`;
-    }
+    const failureCount = await loadData(force);
     renderProjectFilters();
-    bindUI();
     render();
+    message.hidden = false;
+    if (failureCount) {
+      message.textContent = `${failureCount} project source${failureCount === 1 ? '' : 's'} could not be loaded.`;
+    } else if (force) {
+      message.textContent = `Fresh data loaded from GitHub at ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}.`;
+    } else {
+      message.hidden = true;
+      message.textContent = '';
+    }
   } catch (err) {
     message.hidden = false;
     message.textContent = `Dashboard data could not be loaded: ${err.message}`;
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'Refresh data';
+    }
   }
+}
+
+async function init() {
+  bindUI();
+  await refreshData(false);
 }
 
 function renderProjectFilters() {
   const group = document.getElementById('projectFilters');
+  group.replaceChildren();
+
+  const allButton = document.createElement('button');
+  allButton.type = 'button';
+  allButton.className = `chip${state.filters.project === 'all' ? ' active' : ''}`;
+  allButton.dataset.value = 'all';
+  allButton.textContent = 'All projects';
+  group.appendChild(allButton);
+
   state.projects.forEach(project => {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'chip';
+    button.className = `chip${state.filters.project === project.id ? ' active' : ''}`;
     button.dataset.value = project.id;
     button.textContent = project.name;
     group.appendChild(button);
@@ -128,6 +169,7 @@ function bindUI() {
 
   document.getElementById('resetButton').addEventListener('click', resetFilters);
   document.getElementById('pickButton').addEventListener('click', pickTask);
+  document.getElementById('refreshButton').addEventListener('click', () => refreshData(true));
 }
 
 function resetFilters() {
