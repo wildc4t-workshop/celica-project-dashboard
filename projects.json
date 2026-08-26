@@ -4,6 +4,11 @@
       "id": "celikey",
       "repository": "wildc4t-workshop/CeliKey",
       "branch": "main"
+    },
+    {
+      "id": "celica-street-build",
+      "repository": "wildc4t-workshop/celica-street-build",
+      "branch": "main"
     }
   ]
 }
