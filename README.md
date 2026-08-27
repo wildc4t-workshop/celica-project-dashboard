@@ -1,5 +1,7 @@
 # Celica Project Dashboard
 
+**Live dashboard:** https://wildc4t-workshop.github.io/celica-project-dashboard/
+
 Public, read-only dashboard for selecting the next useful Celica engineering task from the active project repositories.
 
 ## What it does
