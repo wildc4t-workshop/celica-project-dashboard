@@ -2,7 +2,7 @@
 
 ## Mission
 
-This repository owns the visual work-selection dashboard that aggregates project metadata and `tasks.csv` files from the individual Celica engineering repositories.
+This repository owns the visual work-selection dashboard that aggregates project metadata, `tasks.csv`, and optional procurement data from the individual Celica engineering repositories.
 
 Its purpose is to answer:
 
@@ -16,6 +16,7 @@ Source of truth remains in each project repository:
 
 - Markdown = engineering knowledge and decisions
 - `tasks.csv` = active work queue
+- `purchases.csv` = task-linked procurement sources and dated price snapshots
 - `project.yaml` = project identity/maturity
 
 The dashboard reads and presents this information. Any future write/edit convenience must ultimately commit back to the owning Git repository rather than maintaining an independent shadow database.
@@ -32,7 +33,7 @@ Use the program-wide task schema for this repo's own `tasks.csv` if one is intro
 
 Use `DEC-DSH-###`.
 
-Track decisions for project discovery/configuration, fetch/cache strategy, schema validation, filtering semantics, frontend technology, deployment, optional write-back behavior, dependency visualization, and archival behavior.
+Track decisions for project discovery/configuration, fetch/cache strategy, schema validation, filtering semantics, frontend technology, deployment, optional write-back behavior, dependency visualization, procurement behavior, price tracking, and archival behavior.
 
 ## Canonical project inputs
 
@@ -41,13 +42,32 @@ Each project repo should expose at minimum:
 - `project.yaml`
 - `tasks.csv`
 
+Projects with `action=buy` tasks should also expose:
+
+- `purchases.csv`
+
 Canonical task schema:
 
 ```text
 id,title,status,action,time_min,context,cost,priority,blocked_by,decision_needed,doc_link,requires_car_down,requires_parts,notes
 ```
 
-Current supported statuses:
+Canonical procurement schema:
+
+```text
+id,task_id,stage,system,item,part_number,qty,state,vendor,url,price_usd,price_checked_at,track_price,notes
+```
+
+Procurement invariants:
+
+- every task with `action=buy` must have at least one linked `purchases.csv` row with a usable HTTP(S) URL;
+- one task may own multiple purchase rows;
+- stable retail SKUs may use `track_price=true` only with a valid URL and numeric dated price snapshot;
+- volatile used-market, salvage, search-page, measurement-dependent, or not-yet-selected items remain `track_price=false`;
+- procurement state such as `buy`, `source`, `hold`, `ordered`, or `owned` does not alter task readiness by itself;
+- dashboard rendering never silently promotes a hold/source row into a purchase authorization.
+
+Current supported task statuses:
 
 `backlog`, `ready`, `doing`, `blocked`, `verify`, `done`
 
@@ -84,7 +104,7 @@ Useful default question:
 
 The current `Pick one for me` behavior should operate only on tasks that already match those filters.
 
-Kanban, maturity, dependency graphs, purchase queues, and recent completions are secondary ideas and should not displace the core work-selection UX.
+The procurement view is secondary. It should make an already-selected `buy` task executable by exposing exact sources, while stage grouping provides a useful consolidated shopping view. It must not displace the core work-selection UX.
 
 ## Dependency behavior
 
@@ -96,7 +116,7 @@ Do not infer readiness from dependency state alone: explicit task `status` remai
 
 ## Links back to engineering memory
 
-Every task should expose its owning repository and `doc_link` when available. The dashboard should encourage moving from task to engineering context rather than becoming the only view of the project.
+Every task should expose its owning repository and `doc_link` when available. Buy tasks should additionally expose their linked procurement rows. The dashboard should encourage moving from task to engineering context rather than becoming the only view of the project.
 
 ## Data integrity
 
@@ -104,11 +124,21 @@ Current lightweight validation covers:
 
 - duplicate task IDs;
 - invalid status/action/context enums;
-- unresolved `blocked_by` references.
+- unresolved `blocked_by` references;
+- duplicate purchase IDs;
+- orphaned purchase-task references;
+- `action=buy` tasks with no purchase URL;
+- tracked-price rows without a valid URL or numeric snapshot.
 
-Potential future checks such as circular dependencies, malformed cost/time values, missing project metadata, and document-link validation are useful only if they remain simple and do not require a backend.
+Potential future checks such as circular dependencies, malformed cost/time values, missing project metadata, stale price snapshots, and document-link validation are useful only if they remain simple and do not require a backend.
 
 Prefer visible warnings over silently dropping malformed rows.
+
+## Price tracking
+
+`price_usd` is a dated snapshot, not a live quote. `price_checked_at` records when that value was verified.
+
+Periodic price tracking may be performed externally or by a scheduled workflow/assistant run that reads only rows where `track_price=true`, verifies the same selected SKU/source, and writes updated snapshots back to the owning repository. Do not compare prices across a silently substituted product, variant, used item, or vendor listing.
 
 ## Implementation bias
 
