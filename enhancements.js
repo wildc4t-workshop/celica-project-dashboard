@@ -85,14 +85,12 @@ taskCard = function(t) {
   card.setAttribute('role', 'button');
   card.setAttribute('aria-label', `Open ${t.id}: ${t.title}`);
   const deps = dependencyIds(t);
-  const purchaseCount = (t.purchases || []).filter(p => p.url).length;
   card.innerHTML = `
     <div class="task-top"><div><span class="task-id">${escapeHtml(t.id)} · ${escapeHtml(t.project_name)}</span><h3 class="task-title">${escapeHtml(t.title)}</h3></div><span class="task-time">${t.time_min || '?'} min</span></div>
     <div class="badges">
       <span class="badge status-${escapeHtml(t.status)}">${pretty(t.status)}</span><span class="badge priority-${escapeHtml(t.priority)}">${pretty(t.priority)}</span>
       <span class="badge">${pretty(t.context)}</span><span class="badge">${pretty(t.action)}</span>
       ${t.requires_car_down ? '<span class="badge">Car down</span>' : ''}${t.requires_parts ? '<span class="badge">Needs parts</span>' : ''}${t.cost !== null ? `<span class="badge">$${escapeHtml(t.cost)}</span>` : ''}
-      ${purchaseCount ? `<span class="badge">${purchaseCount} purchase link${purchaseCount === 1 ? '' : 's'}</span>` : ''}
     </div>
     ${t.notes ? `<p class="task-note">${escapeHtml(t.notes)}</p>` : ''}
     ${deps.length ? `<div class="blocked-line"><span>Depends on</span> ${dependencyButtons(deps)}</div>` : ''}`;
@@ -114,7 +112,6 @@ openTask = function(t) {
       <div><span>Action</span><strong>${pretty(t.action)}</strong></div><div><span>Cost</span><strong>${t.cost === null ? 'Not specified' : `$${t.cost}`}</strong></div>
       <div><span>Car down</span><strong>${t.requires_car_down ? 'Yes' : 'No'}</strong></div><div><span>Parts needed</span><strong>${t.requires_parts ? 'Yes' : 'No'}</strong></div>
     </div>
-    ${purchaseMarkup(t)}
     ${deps.length ? `<div class="dependency-row"><strong>Depends on:</strong> ${dependencyButtons(deps)}</div>` : ''}
     ${unlocks.length ? `<div class="dependency-row"><strong>Unlocks:</strong> ${dependencyButtons(unlocks.map(x => x.id))}</div>` : ''}
     ${t.decision_needed ? `<p><strong>Decision:</strong> ${escapeHtml(t.decision_needed)}</p>` : ''}
@@ -198,9 +195,8 @@ renderProjects = function() {
   list.replaceChildren();
   state.projects.forEach(p => {
     const tasks = projectTasks(p.id), ready = tasks.filter(t => t.status === 'ready').length, blocked = tasks.filter(t => t.status === 'blocked').length;
-    const purchaseCount = state.purchases.filter(x => x.project_id === p.id && x.url).length;
     const card = document.createElement('article'); card.className = 'project-card';
-    card.innerHTML = `<h3>${escapeHtml(p.name)}</h3><div class="project-meta"><span class="badge">${pretty(p.phase)}</span><span class="badge status-ready">${ready} ready</span><span class="badge status-blocked">${blocked} blocked</span>${purchaseCount ? `<span class="badge">${purchaseCount} purchase link${purchaseCount === 1 ? '' : 's'}</span>` : ''}${p.checkpoint ? `<span class="badge">${escapeHtml(p.checkpoint)}</span>` : ''}</div>${p.objective ? `<p class="project-objective">${escapeHtml(p.objective)}</p>` : ''}<div class="project-actions"><a href="${projectStateUrl(p)}" target="_blank" rel="noreferrer">Open project state ↗</a><button type="button" class="project-map-button">Dependency map</button><a href="https://github.com/${p.repository}" target="_blank" rel="noreferrer">Repo ↗</a></div>`;
+    card.innerHTML = `<h3>${escapeHtml(p.name)}</h3><div class="project-meta"><span class="badge">${pretty(p.phase)}</span><span class="badge status-ready">${ready} ready</span><span class="badge status-blocked">${blocked} blocked</span>${p.checkpoint ? `<span class="badge">${escapeHtml(p.checkpoint)}</span>` : ''}</div>${p.objective ? `<p class="project-objective">${escapeHtml(p.objective)}</p>` : ''}<div class="project-actions"><a href="${projectStateUrl(p)}" target="_blank" rel="noreferrer">Open project state ↗</a><button type="button" class="project-map-button">Dependency map</button><a href="https://github.com/${p.repository}" target="_blank" rel="noreferrer">Repo ↗</a></div>`;
     card.querySelector('.project-map-button').addEventListener('click', () => openDependencyMap(p));
     list.appendChild(card);
   });
