@@ -1,6 +1,7 @@
 const state = {
   projects: [],
   tasks: [],
+  purchases: [],
   validationWarnings: [],
   filters: {
     project: 'all', time: 'all', context: 'all', action: 'all',
@@ -34,13 +35,35 @@ function parseCSV(text) {
   return rows.filter(r => r.some(v => v !== '')).map(r => Object.fromEntries(headers.map((h, i) => [h, r[i] ?? ''])));
 }
 
+function foldedYamlValue(text, key) {
+  const m = text.match(new RegExp(`^${key}:\\s*>-\\s*\\n((?:\\s{2}.+\\n?)+)`, 'm'));
+  return m ? m[1].split('\n').map(s => s.trim()).filter(Boolean).join(' ').trim() : '';
+}
+
+function parsePurchaseIndex(text) {
+  const raw = foldedYamlValue(text, 'purchase_index');
+  if (!raw) return [];
+  return raw.split(';').map(x => x.trim()).filter(Boolean).map(entry => {
+    const [task_id = '', stage = '', item = '', url = '', price_usd = '', price_checked_at = '', mode = ''] = entry.split('|').map(x => x.trim());
+    return {
+      task_id,
+      stage,
+      item,
+      url,
+      price_usd: price_usd === '' ? null : Number(price_usd),
+      price_checked_at,
+      track_price: mode === 'track',
+      mode
+    };
+  });
+}
+
 function parseProjectYaml(text) {
   const get = key => {
     const m = text.match(new RegExp(`^${key}:\\s*(.*)$`, 'm'));
     return m ? m[1].trim().replace(/^['"]|['"]$/g, '') : '';
   };
-  const objectiveMatch = text.match(/^objective:\s*>-\s*\n((?:\s{2}.+\n?)+)/m);
-  const objective = objectiveMatch ? objectiveMatch[1].split('\n').map(s => s.trim()).join(' ').trim() : '';
+  const objective = foldedYamlValue(text, 'objective');
   return {
     id: get('id'),
     name: get('name'),
@@ -62,7 +85,15 @@ async function loadProject(entry, cacheBust = '') {
     fetch(rawUrl(entry.repository, entry.branch, 'tasks.csv', cacheBust), { cache: 'no-store' })
   ]);
   if (!metaRes.ok || !taskRes.ok) throw new Error(`Could not load ${entry.repository}`);
-  const project = { ...parseProjectYaml(await metaRes.text()), repository: entry.repository, branch: entry.branch };
+  const metaText = await metaRes.text();
+  const project = { ...parseProjectYaml(metaText), repository: entry.repository, branch: entry.branch };
+  const purchases = parsePurchaseIndex(metaText).map(p => ({
+    ...p,
+    project_id: project.id,
+    project_name: project.name,
+    repository: entry.repository,
+    branch: entry.branch
+  }));
   const tasks = parseCSV(await taskRes.text()).map(t => ({
     ...t,
     project_id: project.id,
@@ -74,10 +105,10 @@ async function loadProject(entry, cacheBust = '') {
     requires_car_down: String(t.requires_car_down).toLowerCase() === 'true',
     requires_parts: String(t.requires_parts).toLowerCase() === 'true'
   }));
-  return { project, tasks };
+  return { project, tasks, purchases };
 }
 
-function validateTaskData(tasks) {
+function validateTaskData(tasks, purchases) {
   const warnings = [];
   const counts = new Map();
   tasks.forEach(t => counts.set(t.id, (counts.get(t.id) || 0) + 1));
@@ -88,11 +119,19 @@ function validateTaskData(tasks) {
     if (!validStatuses.has(t.status)) warnings.push(`${t.id}: invalid status '${t.status}'`);
     if (!validActions.has(t.action)) warnings.push(`${t.id}: invalid action '${t.action}'`);
     if (!validContexts.has(t.context)) warnings.push(`${t.id}: invalid context '${t.context}'`);
+    if (t.action === 'buy' && t.status !== 'done') {
+      const links = purchases.filter(p => p.task_id === t.id && p.url);
+      if (!links.length) warnings.push(`${t.id}: buy task has no purchase link`);
+    }
     if (t.blocked_by) {
       t.blocked_by.split(';').map(x => x.trim()).filter(Boolean).forEach(dep => {
         if (!ids.has(dep)) warnings.push(`${t.id}: missing dependency ${dep}`);
       });
     }
+  });
+  purchases.forEach(p => {
+    if (!ids.has(p.task_id)) warnings.push(`Purchase entry references missing task ${p.task_id}`);
+    if (p.url && !/^https?:\/\//i.test(p.url)) warnings.push(`${p.task_id}: malformed purchase URL for ${p.item}`);
   });
   return [...new Set(warnings)];
 }
@@ -107,8 +146,12 @@ async function loadData(force = false) {
   const failures = loaded.filter(x => x.status === 'rejected');
   const successes = loaded.filter(x => x.status === 'fulfilled').map(x => x.value);
   state.projects = successes.map(x => x.project);
-  state.tasks = successes.flatMap(x => x.tasks);
-  state.validationWarnings = validateTaskData(state.tasks);
+  state.purchases = successes.flatMap(x => x.purchases);
+  state.tasks = successes.flatMap(x => x.tasks).map(t => ({
+    ...t,
+    purchases: state.purchases.filter(p => p.task_id === t.id)
+  }));
+  state.validationWarnings = validateTaskData(state.tasks, state.purchases);
 
   if (state.filters.project !== 'all' && !state.projects.some(p => p.id === state.filters.project)) {
     state.filters.project = 'all';
@@ -233,7 +276,8 @@ function taskMatches(t) {
     if (cost > Number(f.cost)) return false;
   }
   if (f.search) {
-    const haystack = [t.id, t.title, t.notes, t.action, t.context, t.blocked_by, t.project_name].join(' ').toLowerCase();
+    const purchaseText = (t.purchases || []).map(p => `${p.stage} ${p.item}`).join(' ');
+    const haystack = [t.id, t.title, t.notes, t.action, t.context, t.blocked_by, t.project_name, purchaseText].join(' ').toLowerCase();
     if (!haystack.includes(f.search)) return false;
   }
   return true;
@@ -288,6 +332,7 @@ function taskCard(t) {
       ${t.requires_car_down ? '<span class="badge">Car down</span>' : ''}
       ${t.requires_parts ? '<span class="badge">Needs parts</span>' : ''}
       ${t.cost !== null ? `<span class="badge">$${escapeHtml(t.cost)}</span>` : ''}
+      ${(t.purchases || []).length ? `<span class="badge">${t.purchases.length} purchase link${t.purchases.length === 1 ? '' : 's'}</span>` : ''}
     </div>
     ${t.notes ? `<p class="task-note">${escapeHtml(t.notes)}</p>` : ''}
     ${t.blocked_by ? `<div class="blocked-line">Blocked by ${escapeHtml(t.blocked_by)}</div>` : ''}
@@ -325,6 +370,7 @@ function renderProjects() {
     const tasks = state.tasks.filter(t => t.project_id === p.id);
     const ready = tasks.filter(t => t.status === 'ready').length;
     const blocked = tasks.filter(t => t.status === 'blocked').length;
+    const purchaseCount = state.purchases.filter(x => x.project_id === p.id && x.url).length;
     const card = document.createElement('article');
     card.className = 'project-card';
     card.innerHTML = `
@@ -333,6 +379,7 @@ function renderProjects() {
         <span class="badge">${pretty(p.phase)}</span>
         <span class="badge status-ready">${ready} ready</span>
         <span class="badge status-blocked">${blocked} blocked</span>
+        ${purchaseCount ? `<span class="badge">${purchaseCount} purchase link${purchaseCount === 1 ? '' : 's'}</span>` : ''}
         ${p.checkpoint ? `<span class="badge">${escapeHtml(p.checkpoint)}</span>` : ''}
       </div>
       ${p.objective ? `<p class="project-objective">${escapeHtml(p.objective)}</p>` : ''}
@@ -342,6 +389,18 @@ function renderProjects() {
     `;
     list.appendChild(card);
   });
+}
+
+function purchaseMarkup(t) {
+  const purchases = (t.purchases || []).filter(p => p.url);
+  if (!purchases.length) return '';
+  const rows = purchases.map(p => {
+    const price = p.price_usd === null ? '' : ` · $${p.price_usd.toFixed(2)}`;
+    const checked = p.price_checked_at ? ` · checked ${escapeHtml(p.price_checked_at)}` : '';
+    const tracking = p.track_price ? ' · price-trackable' : '';
+    return `<li><a href="${escapeHtml(p.url)}" target="_blank" rel="noreferrer">${escapeHtml(p.item)} ↗</a><span>${escapeHtml(p.stage)}${price}${checked}${tracking}</span></li>`;
+  }).join('');
+  return `<div class="purchase-links"><h4>Purchase links</h4><ul>${rows}</ul></div>`;
 }
 
 function openTask(t) {
@@ -361,6 +420,7 @@ function openTask(t) {
       <div><span>Car down</span><strong>${t.requires_car_down ? 'Yes' : 'No'}</strong></div>
       <div><span>Parts needed</span><strong>${t.requires_parts ? 'Yes' : 'No'}</strong></div>
     </div>
+    ${purchaseMarkup(t)}
     ${t.blocked_by ? `<p><strong>Blocked by:</strong> ${escapeHtml(t.blocked_by)}</p>` : ''}
     ${t.decision_needed ? `<p><strong>Decision:</strong> ${escapeHtml(t.decision_needed)}</p>` : ''}
     <p><a href="${taskDocUrl(t)}" target="_blank" rel="noreferrer">Open engineering context on GitHub ↗</a></p>
